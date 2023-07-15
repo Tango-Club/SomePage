@@ -1,0 +1,13 @@
+*.ibd
+*.swp
+CMakeFiles
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+lib/
+bin/
+data/
+sample
+.cache/
+.vscode/
+compile_commands.json
