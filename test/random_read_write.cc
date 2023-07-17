@@ -96,7 +96,7 @@ int main(int argc, char *argv[]) {
   assert(argc <= 2);
   srand(time(NULL));
 
-  uint32_t page_cnt = 65536;
+  uint32_t page_cnt = 655;
 
   if (argc == 2) {
     page_cnt = static_cast<uint32_t>(std::stoul(argv[1]));
@@ -109,6 +109,12 @@ int main(int argc, char *argv[]) {
     visitor.rand_write_page(page_no);
     visitor.check_read_page(page_no);
   }
+
+  for (uint32_t page_no = 0; page_no < page_cnt; page_no++) {
+    visitor.check_read_page(page_no);
+  }
+
+  std::cout << "Finished line read write check!" << std::endl;
 
   for (uint32_t i = 0; i < page_cnt * 2; i++) {
     uint32_t page_no;

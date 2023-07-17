@@ -9,9 +9,10 @@ Aiming to implement a page engine that achieves higher data compression rates an
 Execute following command to build and run local test:
 
 ```
-$ cmake .
-$ make
-$ ./bin/random_read_write
+cmake .
+make
+./bin/random_read_write
+./bin/run_trace ./sample/sample_trace/tpch.trace
 ```
 
 ## Coding
