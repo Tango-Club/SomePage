@@ -53,9 +53,16 @@ RetCode DummyEngine::Open(const std::string &path, PageEngine **eptr) {
 DummyEngine::DummyEngine(const std::string &path)
     : _path(pathJoin(path, dir_name)) {
   mkdir(_path.c_str(), O_RDWR | O_CREAT);
+  std::string data_file = pathJoin(path, "data.ibd");
+  _fd = open(data_file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+  assert(_fd >= 0);
 }
 
-DummyEngine::~DummyEngine() {}
+DummyEngine::~DummyEngine() {
+  if (_fd >= 0) {
+    close(_fd);
+  }
+}
 
 RetCode DummyEngine::pageWrite(uint32_t page_no, const void *buf) {
   size_t const cBuffSize = ZSTD_compressBound(page_size);
@@ -64,50 +71,23 @@ RetCode DummyEngine::pageWrite(uint32_t page_no, const void *buf) {
 
   size_t const cSize = ZSTD_compress(dst.data(), cBuffSize, buf, page_size, 22);
 
-  std::string data_file = page_no_to_path(page_no);
-
-  int fd = open(data_file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-  ssize_t nwrite = pwrite(fd, dst.data(), cSize, 0);
-  close(fd);
-
-  return kSucc;
-}
-
-RetCode DummyEngine::pageWriteDirect(uint32_t page_no, const void *buf) {
-  std::string data_file = page_no_to_path(page_no);
-
-  int fd = open(data_file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-  ssize_t nwrite = pwrite(fd, buf, page_size, 0);
-  close(fd);
-
+  short real_size = cSize;
+  assert(real_size + 2 <= page_size);
+  pwrite(_fd, &real_size, sizeof(real_size), page_no * page_size);
+  ssize_t nwrite = pwrite(_fd, dst.data(), real_size, page_no * page_size + 2);
   return kSucc;
 }
 
 RetCode DummyEngine::pageRead(uint32_t page_no, void *buf) {
-  std::string data_file = page_no_to_path(page_no);
-  size_t file_size = get_file_size(data_file);
-  if (file_size == 0) {
-    memset(buf, 0, page_size);
-    return kSucc;
-  }
+  short real_size = 0;
+  pread(_fd, &real_size, sizeof(real_size), page_no * page_size);
   std::vector<char> dst;
-  dst.resize(file_size);
-
-  int fd = open(data_file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-  ssize_t nwrite = pread(fd, dst.data(), dst.size(), 0);
-  close(fd);
-
+  dst.resize(real_size);
+  ssize_t nwrite = pread(_fd, dst.data(), real_size, page_no * page_size + 2);
   size_t const cSize = ZSTD_decompress(buf, page_size, dst.data(), dst.size());
-  return kSucc;
-}
-
-RetCode DummyEngine::pageReadDirect(uint32_t page_no, void *buf) {
-  std::string data_file = page_no_to_path(page_no);
-
-  int fd = open(data_file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-  ssize_t nwrite = pread(fd, buf, page_size, 0);
-  close(fd);
-
+  if (cSize != page_size) {
+    return kIOError;
+  }
   return kSucc;
 }
 

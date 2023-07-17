@@ -13,6 +13,8 @@ cmake .
 make
 ./bin/random_read_write
 ./bin/run_trace ./sample/sample_trace/tpch.trace
+
+du --block-size=1 -m
 ```
 
 ## Coding

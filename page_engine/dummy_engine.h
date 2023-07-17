@@ -11,6 +11,7 @@
 class DummyEngine : public PageEngine {
 private:
   std::string _path;
+  int _fd;
   const size_t page_size{16384};
 
 public:
@@ -22,11 +23,7 @@ public:
 
   RetCode pageWrite(uint32_t page_no, const void *buf) override;
 
-  RetCode pageWriteDirect(uint32_t page_no, const void *buf);
-
   RetCode pageRead(uint32_t page_no, void *buf) override;
-
-  RetCode pageReadDirect(uint32_t page_no, void *buf);
 
   std::string page_no_to_path(uint32_t page_no);
 };
