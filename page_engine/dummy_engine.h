@@ -1,18 +1,19 @@
-#ifndef PAGE_ENGINE_DUMMY_ENGINE_H_
-#define PAGE_ENGINE_DUMMY_ENGINE_H_
+#pragma once
+
 #include "page_engine.h"
 #include <cstdint>
 #include <vector>
 
-/*
- * Dummy sample of page engine
- */
+const size_t PAGE_SIZE = 16384;
+const std::string DATA_FILE = "data.ibd";
+const std::string DICT_FILE = "dict.ibd";
+const std::string DIR_NAME = "storage/";
+const int COMPRESSION_LEVEL = 2;
 
 class DummyEngine : public PageEngine {
 private:
   std::string _path;
   int _fd;
-  const size_t page_size{16384};
 
 public:
   static RetCode Open(const std::string &path, PageEngine **eptr);
@@ -27,5 +28,3 @@ public:
 
   std::string page_no_to_path(uint32_t page_no);
 };
-
-#endif // PAGE_ENGINE_DUMMY_ENGINE_H_
