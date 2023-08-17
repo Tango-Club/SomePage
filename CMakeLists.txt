@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
-SET(CMAKE_C_COMPILER clang)
-SET(CMAKE_CXX_COMPILER clang++)
+SET(CMAKE_C_COMPILER gcc)
+SET(CMAKE_CXX_COMPILER g++)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_link_options("-fuse-ld=lld")
@@ -24,6 +24,9 @@ file(GLOB_RECURSE SOURCE_FILES "${SOURCE_DIR}/*.cpp" "${SOURCE_DIR}/*.cc" "${SOU
 include_directories(include)
 
 add_library(page_engine ${SOURCE_FILES})
+
+add_executable(test page_engine/test.cc)
+target_link_libraries(test page_engine)
 
 add_executable(random_read_write test/random_read_write.cc)
 target_link_libraries(random_read_write page_engine)

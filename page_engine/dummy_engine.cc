@@ -1,6 +1,5 @@
 #include "dummy_engine.h"
 
-#include "zstd/lib/zstd.h"
 #include <cassert>
 #include <cstring>
 #include <fcntl.h>
@@ -34,19 +33,75 @@ RetCode DummyEngine::Open(const std::string &path, PageEngine **eptr) {
 
 DummyEngine::DummyEngine(const std::string &path)
     : _path(pathJoin(path, DIR_NAME)) {
+  cctx = ZSTD_createCCtx();
+  dctx = ZSTD_createDCtx();
   mkdir(_path.c_str(), O_RDWR | O_CREAT);
   std::string data_file = pathJoin(_path, DATA_FILE);
-  _fd = open(data_file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-  assert(_fd >= 0);
+  _fd_data = open(data_file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+  if (_fd_data == -1)	printf("Message : %s\n", strerror(errno));
+  assert(_fd_data >= 0);
+  std::string dict_file = pathJoin(_path, DICT_FILE);
+  _fd_dict = open(dict_file.c_str(), O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
+  if (_fd_dict == -1)	printf("Message : %s\n", strerror(errno));
+  assert(_fd_dict >= 0);
 }
 
 DummyEngine::~DummyEngine() {
-  if (_fd >= 0) {
-    close(_fd);
+  ZSTD_freeCCtx(cctx);
+  ZSTD_freeDCtx(dctx);
+  if (dict_loaded.load()) {
+    ZSTD_freeCDict(cdict);
+    ZSTD_freeDDict(ddict);
+    if (dictBuffer != nullptr) {
+      free(dictBuffer);
+    }
+  }
+  if (_fd_data >= 0) {
+    close(_fd_data);
+  }
+  if (_fd_dict >= 0) {
+    close(_fd_data);
   }
 }
 
 RetCode DummyEngine::pageWrite(uint32_t page_no, const void *buf) {
+  if (dict_loaded.load()) {
+    return pageWriteWithDic(page_no, buf);
+  }
+  if (dict_page_num.load() < MAX_DICT_PAGE_NUM) {
+    write(_fd_dict, buf, PAGE_SIZE);
+    if (dict_page_num == MAX_DICT_PAGE_NUM) {
+      dictBuffer = malloc(DICT_SIZE);
+      read(_fd_dict, dictBuffer, DICT_SIZE);
+      cdict = ZSTD_createCDict(dictBuffer, DICT_SIZE, COMPRESSION_LEVEL); 
+      ddict = ZSTD_createDDict(dictBuffer, DICT_SIZE);
+      ZSTD_CCtx_loadDictionary(cctx, dictBuffer, DICT_SIZE);
+      ZSTD_DCtx_loadDictionary(dctx, dictBuffer, DICT_SIZE);
+      dict_loaded.store(true);
+    }
+  }
+  return pageWriteWithoutDic(page_no, buf);
+}
+
+RetCode DummyEngine::pageWriteWithDic(uint32_t page_no, const void *buf) {
+  size_t const cBuffSize = ZSTD_compressBound(PAGE_SIZE);
+  std::vector<char> dst;
+  dst.resize(cBuffSize);
+
+  size_t const cSize =
+      ZSTD_compress_usingCDict(cctx, dst.data(), cBuffSize, buf, PAGE_SIZE, cdict);
+
+  bool isUsingDic = true;
+  short real_size = cSize;
+  assert(real_size + 3 <= PAGE_SIZE);
+
+  pwrite(_fd_data, &isUsingDic, sizeof(isUsingDic), page_no * PAGE_SIZE);
+  pwrite(_fd_data, &real_size, sizeof(real_size), page_no * PAGE_SIZE + 1);
+  ssize_t nwrite = pwrite(_fd_data, dst.data(), real_size, page_no * PAGE_SIZE + 3);
+  return kSucc;
+}
+
+RetCode DummyEngine::pageWriteWithoutDic(uint32_t page_no, const void *buf) {
   size_t const cBuffSize = ZSTD_compressBound(PAGE_SIZE);
   std::vector<char> dst;
   dst.resize(cBuffSize);
@@ -54,20 +109,35 @@ RetCode DummyEngine::pageWrite(uint32_t page_no, const void *buf) {
   size_t const cSize =
       ZSTD_compress(dst.data(), cBuffSize, buf, PAGE_SIZE, COMPRESSION_LEVEL);
 
+  bool isUsingDic = false;
   short real_size = cSize;
-  assert(real_size + 2 <= PAGE_SIZE);
-  pwrite(_fd, &real_size, sizeof(real_size), page_no * PAGE_SIZE);
-  ssize_t nwrite = pwrite(_fd, dst.data(), real_size, page_no * PAGE_SIZE + 2);
+  assert(real_size + 3 <= PAGE_SIZE);
+
+  pwrite(_fd_data, &isUsingDic, sizeof(isUsingDic), page_no * PAGE_SIZE);
+  pwrite(_fd_data, &real_size, sizeof(real_size), page_no * PAGE_SIZE + 1);
+  ssize_t nwrite = pwrite(_fd_data, dst.data(), real_size, page_no * PAGE_SIZE + 3);
   return kSucc;
 }
 
+
+
 RetCode DummyEngine::pageRead(uint32_t page_no, void *buf) {
+  bool isUsingDic = false;
+  pread(_fd_data, &isUsingDic, sizeof(isUsingDic), page_no * PAGE_SIZE);
+
   short real_size = 0;
-  pread(_fd, &real_size, sizeof(real_size), page_no * PAGE_SIZE);
+  pread(_fd_data, &real_size, sizeof(real_size), page_no * PAGE_SIZE + 1);
+
   std::vector<char> dst;
   dst.resize(real_size);
-  ssize_t nwrite = pread(_fd, dst.data(), real_size, page_no * PAGE_SIZE + 2);
-  size_t const cSize = ZSTD_decompress(buf, PAGE_SIZE, dst.data(), dst.size());
+
+  ssize_t nwrite = pread(_fd_data, dst.data(), real_size, page_no * PAGE_SIZE + 3);
+  size_t cSize = 0;
+  if (isUsingDic) {
+    cSize = ZSTD_decompress_usingDDict(dctx, buf, PAGE_SIZE, dst.data(), dst.size(), ddict);
+  } else {
+    cSize = ZSTD_decompress(buf, PAGE_SIZE, dst.data(), dst.size());
+  }
   if (cSize != PAGE_SIZE) {
     return kIOError;
   }
