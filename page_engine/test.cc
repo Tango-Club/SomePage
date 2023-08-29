@@ -7,7 +7,7 @@ int main() {
   std::string src = "Hello, world! This is a test string for zstd compression.Hello, world! This is a test string for zstd compression.Hello, world! This is a test string for zstd compression.Hello, world! This is a test string for zstd compression.Hello, world! This is a test string for zstd compression.Hello, world! This is a test string for zstd compression.Hello, world! This is a test string for zstd compression.Hello, world! This is a test string for zstd compression.Hello, world! This is a test string for zstd compression.Hello, world! This is a test string for zstd compression.Hello, world! This is a test string for zstd compression.Hello, world! This is a test string for zstd compression.";
   printf("before compress string size : %d\n", src.length());
   // 字典文件名
-  std::string dictName = "dictionary";
+  std::string dictName = "./dictionary";
 
   // 加载字典文件
   FILE* dictFile = fopen(dictName.c_str(), "rb");

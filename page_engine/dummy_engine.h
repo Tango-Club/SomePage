@@ -10,10 +10,9 @@ const size_t PAGE_SIZE = 16384;
 const std::string DATA_FILE = "data.ibd";
 const std::string DICT_FILE = "dict.ibd";
 const std::string DIR_NAME = "storage/";
-const int COMPRESSION_LEVEL = 2;
-const int MAX_DICT_PAGE_NUM = 500;
+const int COMPRESSION_LEVEL = 3;
+const int MAX_DICT_PAGE_NUM = 100;
 const size_t DICT_SIZE = PAGE_SIZE * MAX_DICT_PAGE_NUM;
-
 
 class DummyEngine : public PageEngine {
 private:
@@ -21,8 +20,6 @@ private:
   int _fd_dict;
   std::string _path;
 
-  ZSTD_CCtx* cctx{nullptr};
-  ZSTD_DCtx* dctx{nullptr};
   ZSTD_CDict* cdict{nullptr};
   ZSTD_DDict* ddict{nullptr};
 
