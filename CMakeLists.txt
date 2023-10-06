@@ -14,6 +14,9 @@ set(CMAKE_CXX_FLAGS "-pthread -ldl -lrt ${CMAKE_CXX_FLAGS}")
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
 
+# add_compile_options(-fsanitize=address)
+# set(CMAKE_CXX_FLAGS "-lasan ${CMAKE_CXX_FLAGS}")
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -30,3 +33,6 @@ target_link_libraries(random_read_write page_engine)
 
 add_executable(run_trace test/run_trace.cc)
 target_link_libraries(run_trace page_engine)
+
+add_executable(run_trace_multithread test/run_trace_multithread.cc)
+target_link_libraries(run_trace_multithread page_engine)

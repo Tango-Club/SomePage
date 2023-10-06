@@ -17,6 +17,7 @@ private:
   PageEngine *page_engine;
   const int page_size{16384};
   void *buf;
+  void *ptr;
   size_t io_cnt;
 
   void io_cnt_inc() {
@@ -56,12 +57,13 @@ public:
     RetCode ret = PageEngine::Open(path, &page_engine);
     assert(ret == kSucc);
 
-    buf = malloc(page_size);
+    ptr = malloc(page_size * 2);
+    buf = (void *)(((uint64_t)ptr + 16384) & ~0x3fff);
   }
 
   ~Visitor() {
     delete page_engine;
-    free(buf);
+    free(ptr);
   }
 
   void rand_write_page(uint32_t page_no) {

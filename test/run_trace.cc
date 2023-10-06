@@ -5,33 +5,39 @@
  */
 
 #include "page_engine.h"
+#include <iostream>
+#include <fstream>
 #include <cassert>
 #include <cstring>
-#include <fstream>
-#include <iostream>
 #include <sstream>
 
 class Visitor {
-private:
+ private:
   PageEngine *page_engine;
   const int page_size{16384};
   void *page_buf;
   void *trace_buf;
 
-public:
+  void *page_ptr;
+  void *trace_ptr;
+
+ public:
   Visitor() {
     std::string path = "./";
     RetCode ret = PageEngine::Open(path, &page_engine);
     assert(ret == kSucc);
 
-    page_buf = malloc(page_size);
-    trace_buf = malloc(page_size);
+    page_ptr = malloc(2 * page_size);
+    page_buf = (void*)(((uint64_t)page_ptr + 16384) & ~0x3fff);
+
+    trace_ptr = malloc(2 * page_size);
+    trace_buf = (void*)(((uint64_t)trace_ptr + 16384) & ~0x3fff);
   }
 
   ~Visitor() {
     delete page_engine;
-    free(page_buf);
-    free(trace_buf);
+    free(page_ptr);
+    free(trace_ptr);
   }
 
   void run_trace(std::string path) {
@@ -42,33 +48,34 @@ public:
     std::string line;
     while (std::getline(trace_file, line)) {
       std::stringstream linestream(line);
-      if (!(linestream >> RW >> page_no))
-        break;
-      trace_file.read((char *)trace_buf, page_size);
+      if (!(linestream >> RW >> page_no)) break;
+      trace_file.read((char*)trace_buf, page_size);
 
-      switch (RW) {
-      case 'R': {
-        std::cout << "Read Page page_no: " << page_no << std::endl;
-        RetCode ret = page_engine->pageRead(page_no, page_buf);
-        assert(ret == kSucc);
-        assert(memcmp(page_buf, trace_buf, page_size) == 0);
-        break;
-      }
-      case 'W': {
-        std::cout << "Write Page page_no: " << page_no << std::endl;
-        RetCode ret = page_engine->pageWrite(page_no, trace_buf);
-        assert(ret == kSucc);
-        break;
-      }
-      default:
-        assert(false);
+      switch(RW) {
+        case 'R':
+        {
+          std::cout << "Read Page page_no: " << page_no << std::endl;
+          RetCode ret = page_engine->pageRead(page_no, page_buf);
+          assert(ret == kSucc);
+          assert(memcmp(page_buf, trace_buf, page_size) == 0);
+          break;
+        }
+        case 'W':
+        {
+          std::cout << "Write Page page_no: " << page_no << std::endl;
+          RetCode ret = page_engine->pageWrite(page_no, trace_buf);
+          assert(ret == kSucc);
+          break;
+        }
+        default:
+          assert(false);
       }
     }
     trace_file.close();
   }
 };
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   assert(argc == 2);
 
   std::string path(argv[1]);
