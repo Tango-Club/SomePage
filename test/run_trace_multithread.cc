@@ -16,7 +16,7 @@
 #include <vector>
 #include <thread>
 
-static const float SHUTDOWN_THD = 0.00001;
+static const float SHUTDOWN_THD = 0.0001;
 static const int THREAD_NUM = 1;
 
 typedef enum {

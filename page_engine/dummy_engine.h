@@ -8,7 +8,7 @@ const size_t PAGE_SIZE = 16384;
 const std::string DATA_FILE = "data.ibd";
 const std::string DICT_FILE = "dict.ibd";
 const std::string DIR_NAME = "storage/";
-const int COMPRESSION_LEVEL = 2;
+const int COMPRESSION_LEVEL = 0;
 
 class DummyEngine : public PageEngine {
 private:
